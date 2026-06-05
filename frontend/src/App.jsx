@@ -3,7 +3,7 @@ import ReactFlow, {
   Background, Controls, MiniMap, Handle, Position, useNodesState, useEdgesState,
 } from "reactflow";
 import sampleGraph from "./sampleGraph.json";
-import { bootstrap, approveSuggestion, runRecon } from "./api";
+import { bootstrap, approveSuggestion, runRecon, getResults, exportUrl } from "./api";
 
 /* ---------- custom node ---------- */
 function FieldNode({ data }) {
@@ -77,6 +77,8 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [api, setApi] = useState(null);          // ids from bootstrap (live mode)
   const [runSummary, setRunSummary] = useState(null);
+  const [runId, setRunId] = useState(null);
+  const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -129,6 +131,9 @@ export default function App() {
         dest_dataset_id: api.dest_dataset_id, as_of_date: api.as_of_date,
       });
       setRunSummary(run.summary);
+      setRunId(run.run_id);
+      const res = await getResults(run.run_id);
+      setResults(res.items.filter((r) => r.category !== "MATCH"));
     } catch (e) { setError(`Reconcile failed: ${e.message}`); }
     finally { setBusy(false); }
   };
@@ -173,6 +178,24 @@ export default function App() {
             {SUMMARY_FIELDS.map(([k, label]) => (
               <div className="kv" key={k}><b>{label}</b>{runSummary[k]}</div>
             ))}
+            {runId && <a className="dl" href={exportUrl(runId)} target="_blank" rel="noreferrer">
+              ⬇ Download Excel report</a>}
+            {results.length > 0 && <>
+              <h2 style={{ marginTop: 12 }}>Issues ({results.length})</h2>
+              <table className="results">
+                <thead><tr><th>Key</th><th>Field</th><th>Cat</th><th>Actual</th></tr></thead>
+                <tbody>
+                  {results.map((r, i) => (
+                    <tr key={i} className={`cat-${r.category}`}>
+                      <td title={r.record_key}>{r.record_key.split("|")[0]}</td>
+                      <td>{r.field_key}</td>
+                      <td>{r.category === "EXCEPTION" ? "EXC" : r.severity?.[0] || "?"}</td>
+                      <td title={r.verdict}>{r.actual}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>}
           </div>}
 
           {!sel && <>

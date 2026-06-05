@@ -57,3 +57,16 @@ body {
 .hint { color: #9ca3af; font-size: 12px; }
 .reason { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; font-size: 12px; }
 pre { background: #0b1020; color: #d1d5db; padding: 10px; border-radius: 6px; font-size: 11px; overflow: auto; }
+
+.dl {
+  display: inline-block; margin: 8px 0; padding: 6px 10px; border-radius: 6px;
+  background: #2563eb; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600;
+}
+.dl:hover { background: #1d4ed8; }
+
+table.results { width: 100%; border-collapse: collapse; font-size: 11px; }
+table.results th { text-align: left; color: #6b7280; border-bottom: 1px solid #e5e7eb; padding: 4px; }
+table.results td { padding: 4px; border-bottom: 1px solid #f3f4f6; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+table.results tr.cat-MISMATCH td:nth-child(3) { color: #991b1b; font-weight: 700; }
+table.results tr.cat-EXCEPTION td:nth-child(3) { color: #92400e; font-weight: 700; }

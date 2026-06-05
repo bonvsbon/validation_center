@@ -22,3 +22,15 @@ export const approveSuggestion = (suggestionId, rejectEdgeIds) =>
 
 // run reconciliation -> run record incl. summary
 export const runRecon = (body) => jpost("/recon/runs", body);
+
+// drill-down results (paginated)
+export async function getResults(runId, { category = null, pageSize = 500 } = {}) {
+  const q = new URLSearchParams({ page_size: String(pageSize) });
+  if (category) q.set("category", category);
+  const r = await fetch(`${BASE}/recon/runs/${runId}/results?${q}`);
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+// Excel export URL (open in a new tab / anchor href)
+export const exportUrl = (runId) => `${BASE}/recon/runs/${runId}/export`;
