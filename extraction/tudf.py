@@ -97,21 +97,79 @@ class TudfExtractor(Extractor):
             raise ValueError("PDF has no text (scanned); provide an OCR engine to load_pdf()")
 
         result = ExtractionResult(model=self.name, prompt_version="n/a")
+        for d in self._walk(pdf):
+            cit = Citation(page=d["page"], source_text=d["source"])
+            result.fields.append(ExtractedField(
+                field_key=d["field_key"], name=d["name"], datatype=d["datatype"],
+                required=d["required"], is_key=False, format=d["format"], citation=cit,
+                confidence=0.9 if d["fmt"] == "tagged" else 0.85,
+                reasoning=f"{d['seg'].upper()} segment field {d['tag'] or d['position']}, "
+                          f"page {d['page']}"))
+            if d["required"]:
+                result.rules.append(ExtractedRule(
+                    rule_key=f"{d['field_key']}__not_null", type="NOT_NULL",
+                    target_field_keys=[d["field_key"]], severity="ERROR", citation=cit,
+                    confidence=0.85, reasoning="field marked Required"))
+            if d["datatype"] == "DATE":
+                result.rules.append(ExtractedRule(
+                    rule_key=f"{d['field_key']}__date_valid", type="DATE_VALID",
+                    target_field_keys=[d["field_key"]],
+                    params={"format": "%Y%m%d", "not_future": True}, severity="ERROR",
+                    citation=cit, confidence=0.8, reasoning="description specifies YYYYMMDD"))
+        return result
+
+    def build_layout(self, pdf: PdfDoc) -> Dict[str, dict]:
+        """Build the data-file parsing layout from the spec: for each segment, its
+        format ('fixed'|'tagged') and ordered fields with their tag/position/length/
+        length-type. Consumed by tudf_data.parse_tudf()."""
+        layout: Dict[str, dict] = {}
+        for d in self._walk(pdf):
+            seg = layout.setdefault(d["seg"], {"code": d["seg"], "fmt": d["fmt"], "fields": []})
+            seg["fields"].append({
+                "field_key": d["field_key"], "name": d["name"], "tag": d["tag"],
+                "position": d["position"], "char": d["char"], "length": d["length"],
+                "lentype": d["lentype"], "datatype": d["datatype"]})
+        return layout
+
+    # ---- shared line-buffered walk over the spec's segment tables ----
+    def _walk(self, pdf: PdfDoc):
         seg_code: Optional[str] = None
         seg_fmt: Optional[str] = None
         seen: set = set()
         buf: List[str] = []
         buf_page = 0
 
-        def is_start(line: str) -> bool:
-            pat = _START_TAGGED if seg_fmt == "tagged" else _START_FIXED
-            return bool(pat.match(line))
+        def parse(text: str):
+            text = re.sub(r"\s+", " ", text).strip()
+            groups = self._tagged(text) if seg_fmt == "tagged" else self._fixed(text)
+            if not groups:
+                return None
+            tag, position, fname, requirement, char, lentype, length, desc = groups
+            fname = fname.strip().rstrip(".")
+            if len(fname) < 2 or len(fname) > 60:
+                return None
+            key = f"{seg_code}.{_slug(fname)}"
+            if key in seen:
+                return None
+            seen.add(key)
+            datatype, fmt_hint = _datatype(char, fname, desc)
+            return {
+                "field_key": key,
+                "seg": seg_code, "fmt": seg_fmt, "page": buf_page,
+                "tag": tag, "position": position, "name": fname, "char": char,
+                "length": int(length), "lentype": lentype, "datatype": datatype,
+                "required": _required(requirement, desc, seg_fmt),
+                "format": f"{char}:{length}" + (f"/{fmt_hint}" if fmt_hint else ""),
+                "source": text[:160]}
+
+        results = []
 
         def flush():
-            if not buf or seg_code is None:
-                return
-            self._emit(" ".join(buf), seg_code, seg_fmt, buf_page, seen, result)
-            buf.clear()
+            if buf and seg_code is not None:
+                d = parse(" ".join(buf))
+                if d:
+                    results.append(d)
+                buf.clear()
 
         for page in pdf.pages:
             for line in page.lines:
@@ -122,50 +180,15 @@ class TudfExtractor(Extractor):
                     continue
                 if seg_code is None or _NOISE.search(line) or _THAI.search(line):
                     continue
-                if is_start(line):
+                start = (_START_TAGGED if seg_fmt == "tagged" else _START_FIXED).match(line)
+                if start:
                     flush()
                     buf_page = page.page
                     buf.append(line)
                 elif buf:
-                    buf.append(line)          # continuation of the current field row
+                    buf.append(line)
         flush()
-        return result
-
-    def _emit(self, text: str, seg_code: str, seg_fmt: str, page: int,
-              seen: set, result: ExtractionResult) -> None:
-        text = re.sub(r"\s+", " ", text).strip()
-        parsed = self._tagged(text) if seg_fmt == "tagged" else self._fixed(text)
-        if not parsed:
-            return
-        tag, fname, requirement, char, length, desc = parsed
-        fname = fname.strip().rstrip(".")
-        if len(fname) < 2 or len(fname) > 60:
-            return
-        key = f"{seg_code}.{_slug(fname)}"
-        if key in seen:
-            return
-        seen.add(key)
-
-        datatype, fmt_hint = _datatype(char, fname, desc)
-        required = _required(requirement, desc, seg_fmt)
-        cit = Citation(page=page, source_text=(text[:160]))
-
-        result.fields.append(ExtractedField(
-            field_key=key, name=fname, datatype=datatype, required=required, is_key=False,
-            format=f"{char}:{length}" + (f"/{fmt_hint}" if fmt_hint else ""),
-            citation=cit, confidence=0.9 if seg_fmt == "tagged" else 0.85,
-            reasoning=f"{seg_code.upper()} segment field {tag}, page {page}"))
-
-        if required:
-            result.rules.append(ExtractedRule(
-                rule_key=f"{key}__not_null", type="NOT_NULL", target_field_keys=[key],
-                severity="ERROR", citation=cit, confidence=0.85,
-                reasoning="field marked Required"))
-        if datatype == "DATE":
-            result.rules.append(ExtractedRule(
-                rule_key=f"{key}__date_valid", type="DATE_VALID", target_field_keys=[key],
-                params={"format": "%Y%m%d", "not_future": True}, severity="ERROR",
-                citation=cit, confidence=0.8, reasoning="description specifies YYYYMMDD"))
+        return results
 
     # ---- helpers ----
     @staticmethod
@@ -180,8 +203,9 @@ class TudfExtractor(Extractor):
         m = _RE_TAGGED.match(line)
         if not m:
             return None
-        tag, name, requirement, char, _lentype, length, desc = m.groups()
-        return tag, name, requirement, char.replace("AN", "A/N"), length, desc
+        tag, name, requirement, char, lentype, length, desc = m.groups()
+        tag = tag.lstrip("*")          # '*02' -> '02'
+        return tag, None, name, requirement, char.replace("AN", "A/N"), lentype, length, desc
 
     @staticmethod
     def _fixed(line: str):
@@ -189,7 +213,6 @@ class TudfExtractor(Extractor):
         if not m:
             return None
         pos, name, char, length, desc = m.groups()
-        # guard: position should be a small ascending int (1..120); skip junk
-        if int(pos) > 200:
+        if int(pos) > 200:             # guard against junk
             return None
-        return pos, name, None, char.replace("AN", "A/N"), length, desc
+        return None, int(pos), name, None, char.replace("AN", "A/N"), "F", length, desc
