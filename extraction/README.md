@@ -23,7 +23,14 @@ PDF ─► pdf.load_pdf()         text per page + file hash + scanned detection
 | Extractor | Use | Runs offline? |
 |---|---|---|
 | `MockExtractor` | deterministic parse of FIELDS/RULES sections; reference impl + tests | ✅ |
+| `TudfExtractor` | **the real NCB / TransUnion Data Format (TUDF) spec** — parses the fixed-length (HEADER/ES/TRLR) and tagged (PN/ID/PA/TL) segment field tables into fields + NOT_NULL/DATE_VALID rules with citations | ✅ |
 | `AnthropicExtractor` | free-form specs via Claude, constrained to the `emit_template` tool (structured output) | needs `ANTHROPIC_API_KEY` |
+
+The API picks an extractor per call: `POST /documents/{id}/extract?extractor=tudf`.
+
+> The TUDF spec PDF is a **Confidential NCB document** — it is **not** committed.
+> `extraction/test_tudf.py` / `api/test_api_tudf.py` run pure-unit checks always and
+> integration checks only when `TUDF_SPEC_PDF` points at a local copy (otherwise skip).
 
 Both return the same `ExtractionResult`; the API defaults to `MockExtractor` and can
 be constructed with `create_app(extractor=AnthropicExtractor())`.

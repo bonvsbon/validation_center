@@ -24,8 +24,8 @@ from orchestrator.resolver import resolve
 from orchestrator.engine import run as engine_run
 from persistence import InMemoryStore, ReconStore, ReconRunRecord, new_id
 from reporting import build_report
-from extraction import (load_pdf, MockExtractor, Extractor, build_sample_pdf,
-                       new_extraction_run, to_draft_template, approval)
+from extraction import (load_pdf, MockExtractor, TudfExtractor, Extractor,
+                       build_sample_pdf, new_extraction_run, to_draft_template, approval)
 from suggester import (MockSuggester, Suggester, pending_summary,
                        approve_edges, to_mapping)
 from suggester.core import SuggestedMapping, Node, Edge
@@ -94,6 +94,9 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
     app.state.store = store or InMemoryStore()
     app.state.work_dir = work_dir or tempfile.mkdtemp(prefix="vc_")
     app.state.extractor = extractor or MockExtractor()
+    # selectable extractors (?extractor=tudf for the real NCB/TUDF spec format)
+    app.state.extractors = {"default": app.state.extractor,
+                            "mock": MockExtractor(), "tudf": TudfExtractor()}
     app.state.suggester = suggester or MockSuggester()
     app.state.ocr = ocr   # OcrEngine for scanned PDFs; None = digital-only
     app.state.templates: Dict[str, Dict[str, Any]] = {}
@@ -231,13 +234,17 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
                 "file_hash": doc.file_hash}
 
     @app.post("/api/v1/documents/{document_id}/extract", status_code=201)
-    def extract_document(document_id: str, template_key: str = "extracted"):
+    def extract_document(document_id: str, template_key: str = "extracted",
+                         extractor: str = "default"):
         d = app.state.documents.get(document_id)
         if not d:
             raise HTTPException(404, "document not found")
+        eng = app.state.extractors.get(extractor)
+        if eng is None:
+            raise HTTPException(400, f"unknown extractor '{extractor}'")
         doc = load_pdf(d["path"], ocr=app.state.ocr)   # OCR applied if scanned + configured
         try:
-            result = app.state.extractor.extract(doc)
+            result = eng.extract(doc)
         except ValueError as e:        # e.g. scanned PDF needs OCR
             raise HTTPException(422, str(e))
         erun = new_extraction_run(result, doc)
