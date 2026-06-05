@@ -16,4 +16,5 @@ anthropic>=0.40        # AnthropicExtractor (prod); MockExtractor needs nothing
 
 # --- testing ---
 httpx>=0.27            # FastAPI TestClient
+pytest>=8.0
 # Postgres persistence (prod): psycopg[binary]>=3.1

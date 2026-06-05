@@ -10,11 +10,13 @@ In-memory registries keep the demo self-contained; swap `InMemoryStore` for
 """
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
+import json
 import os
 import tempfile
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import duckdb
 
@@ -22,7 +24,7 @@ from orchestrator.resolver import resolve
 from orchestrator.engine import run as engine_run
 from persistence import InMemoryStore, ReconStore, ReconRunRecord, new_id
 from reporting import build_report
-from extraction import (load_pdf, MockExtractor, Extractor,
+from extraction import (load_pdf, MockExtractor, Extractor, build_sample_pdf,
                        new_extraction_run, to_draft_template, approval)
 from suggester import (MockSuggester, Suggester, pending_summary,
                        approve_edges, to_mapping)
@@ -87,6 +89,51 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
     app.state.documents: Dict[str, Dict[str, Any]] = {}
     app.state.extraction_runs: Dict[str, Dict[str, Any]] = {}
     app.state.suggestions: Dict[str, SuggestedMapping] = {}
+
+    # dev CORS (Vite serves the canvas; the dev proxy makes this same-origin, but
+    # allow cross-origin too so a separately-served build can call the API).
+    app.add_middleware(
+        CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+    _FX = os.path.join(os.path.dirname(__file__), "..", "orchestrator", "fixtures")
+
+    # ---------- demo bootstrap: full pipeline -> a ready-to-review suggestion ----------
+    @app.post("/api/v1/demo/bootstrap", status_code=201)
+    def demo_bootstrap():
+        """One call the canvas can use: sample PDF -> extract -> (auto-approve template)
+        -> register datasets + code list -> AI suggest mapping. Returns the suggestion
+        graph plus the ids the canvas needs to approve edges and reconcile."""
+        def reg_ds(role, name, fname):
+            did = new_id()
+            path = os.path.join(_FX, fname)
+            app.state.datasets[did] = {"id": did, "role": role, "name": name,
+                                       "path": path, "columns": _profile_csv(path)}
+            return did
+        sid = reg_ds("SOURCE", "source.csv", "source.csv")
+        ddid = reg_ds("DESTINATION", "dest.csv", "dest.csv")
+        cid = new_id()
+        with open(os.path.join(_FX, "code_lists.json"), encoding="utf-8") as f:
+            app.state.code_lists[cid] = json.load(f)
+
+        pdf = os.path.join(app.state.work_dir, "demo_spec.pdf")
+        build_sample_pdf(pdf)
+        doc = load_pdf(pdf)
+        result = app.state.extractor.extract(doc)
+        erun = new_extraction_run(result, doc)
+        tmpl = to_draft_template(result, doc, erun.run_id, template_key="ncb-m16")
+        approval.approve_all(tmpl, approver="demo")   # template approved; canvas approves the MAPPING
+        tid = new_id()
+        app.state.templates[tid] = tmpl
+
+        sm = app.state.suggester.suggest(
+            tmpl, app.state.datasets[sid]["columns"],
+            app.state.datasets[ddid]["columns"], sid, ddid)
+        sug_id = new_id()
+        app.state.suggestions[sug_id] = sm
+        return {"suggestion_id": sug_id, "template_id": tid, "code_lists_id": cid,
+                "source_dataset_id": sid, "dest_dataset_id": ddid,
+                "as_of_date": "2026-06-04",
+                "pending": pending_summary(sm), "graph": sm.to_dict()}
 
     # ---------- registration ----------
     @app.post("/api/v1/templates", status_code=201)

@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: Python (engine + API + extraction + suggester)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run test suites
+        run: python -m pytest orchestrator api extraction suggester -q
+
+  dotnet:
+    name: .NET port (build + SQL parity)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build solution
+        run: dotnet build dotnet/ValidationCenter.slnx -c Release
+      - name: Generate SQL from .NET and cross-validate with DuckDB
+        run: |
+          pip install duckdb
+          dotnet run --project dotnet/ValidationCenter.Cli -c Release -- \
+            --template orchestrator/fixtures/template_ncb.json \
+            --mapping  orchestrator/fixtures/mapping_ncb.json \
+            --code-lists orchestrator/fixtures/code_lists.json \
+            --source   orchestrator/fixtures/source.csv \
+            --dest     orchestrator/fixtures/dest.csv \
+            --dump-sql /tmp/g.sql
+          python - <<'PY'
+          import duckdb
+          c = duckdb.connect(); c.execute(open('/tmp/g.sql', encoding='utf-8').read())
+          cols = ['total_records','match_count','mismatch_count','missing_src',
+                  'missing_dst','duplicate_count','exception_count']
+          got = tuple(int(x) for x in c.execute('SELECT '+','.join(cols)+' FROM run_summary').fetchone())
+          assert got == (7,2,1,1,1,1,1), f'parity FAIL: {got}'
+          print('parity PASS', got)
+          PY
+
+  frontend:
+    name: Frontend (React Flow canvas build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install and build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
