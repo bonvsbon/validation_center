@@ -48,6 +48,28 @@ RULES = [
 ]
 
 
+def spec_text() -> str:
+    """The full spec as plain text (what OCR would recover from a scanned copy)."""
+    return "\n".join(PREAMBLE + FIELDS + RULES)
+
+
+def build_scanned_pdf(path: str) -> str:
+    """A 'scanned' PDF with NO text layer (just gray boxes simulating a page image),
+    so load_pdf() flags is_scanned=True and routing through OCR is required."""
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    c = canvas.Canvas(path, pagesize=LETTER)
+    width, height = LETTER
+    c.setFillGray(0.92)
+    c.rect(60, 120, width - 120, height - 200, fill=1, stroke=0)
+    c.setFillGray(0.8)
+    for i in range(14):                       # faux scan-lines, no extractable text
+        y = height - 150 - i * 28
+        c.rect(80, y, width - 160, 10, fill=1, stroke=0)
+    c.showPage()
+    c.save()
+    return path
+
+
 def build_sample_pdf(path: str) -> str:
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     c = canvas.Canvas(path, pagesize=LETTER)

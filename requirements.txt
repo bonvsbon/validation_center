@@ -13,6 +13,9 @@ openpyxl>=3.1
 pypdf>=4.0
 reportlab>=4.0
 anthropic>=0.40        # AnthropicExtractor (prod); MockExtractor needs nothing
+# Scanned-PDF OCR (prod): pdf2image + pytesseract (+ Tesseract binary & poppler)
+# pdf2image>=1.17
+# pytesseract>=0.3.10
 
 # --- testing ---
 httpx>=0.27            # FastAPI TestClient

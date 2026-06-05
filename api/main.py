@@ -89,12 +89,13 @@ def _profile_csv(path: str) -> List[Dict[str, Any]]:
 
 def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = None,
                extractor: Optional[Extractor] = None,
-               suggester: Optional[Suggester] = None) -> FastAPI:
+               suggester: Optional[Suggester] = None, ocr=None) -> FastAPI:
     app = FastAPI(title="Validation Center API", version="0.1.0")
     app.state.store = store or InMemoryStore()
     app.state.work_dir = work_dir or tempfile.mkdtemp(prefix="vc_")
     app.state.extractor = extractor or MockExtractor()
     app.state.suggester = suggester or MockSuggester()
+    app.state.ocr = ocr   # OcrEngine for scanned PDFs; None = digital-only
     app.state.templates: Dict[str, Dict[str, Any]] = {}
     app.state.mappings: Dict[str, Dict[str, Any]] = {}
     app.state.code_lists: Dict[str, Dict[str, Any]] = {}
@@ -209,7 +210,7 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
         d = app.state.documents.get(document_id)
         if not d:
             raise HTTPException(404, "document not found")
-        doc = load_pdf(d["path"])
+        doc = load_pdf(d["path"], ocr=app.state.ocr)   # OCR applied if scanned + configured
         try:
             result = app.state.extractor.extract(doc)
         except ValueError as e:        # e.g. scanned PDF needs OCR

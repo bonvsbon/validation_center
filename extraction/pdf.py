@@ -39,7 +39,10 @@ def file_hash(path: str) -> str:
     return h.hexdigest()
 
 
-def load_pdf(path: str) -> PdfDoc:
+def load_pdf(path: str, ocr=None) -> PdfDoc:
+    """Load text per page. If the PDF has no text layer (scanned) and an `ocr`
+    engine is provided, recover text via OCR. `ocr` is duck-typed: anything with
+    a `recognize(path) -> List[PdfPage]` method (see ocr.OcrEngine)."""
     reader = PdfReader(path)
     pages: List[PdfPage] = []
     total_chars = 0
@@ -49,6 +52,10 @@ def load_pdf(path: str) -> PdfDoc:
         lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         pages.append(PdfPage(page=i, text=text, lines=lines))
     is_scanned = total_chars < 20  # essentially no text layer
+
+    if is_scanned and ocr is not None:
+        pages = ocr.recognize(path)   # recover text; is_scanned flag stays True
+
     return PdfDoc(
         file_hash=file_hash(path),
         page_count=len(pages),

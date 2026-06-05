@@ -28,6 +28,18 @@ PDF ─► pdf.load_pdf()         text per page + file hash + scanned detection
 Both return the same `ExtractionResult`; the API defaults to `MockExtractor` and can
 be constructed with `create_app(extractor=AnthropicExtractor())`.
 
+## Scanned PDFs (OCR)
+A PDF with no text layer is flagged `is_scanned` and **blocks extraction** until text
+is recovered. `load_pdf(path, ocr=engine)` routes it through an `OcrEngine`:
+| Engine | Use | Offline? |
+|---|---|---|
+| `MockOcr(text)` | deterministic stand-in; tests the scanned path | ✅ |
+| `TesseractOcr(lang="tha+eng")` | production OCR via pdf2image + pytesseract | needs Tesseract + poppler |
+
+Wire it in the API with `create_app(ocr=TesseractOcr())`; uploads that are scanned then
+extract instead of returning 422. Install the prod deps with:
+`pip install pdf2image pytesseract` (+ the Tesseract binary and poppler on the host).
+
 ## Guarantees
 - **Human-in-the-loop:** draft items are `SUGGESTED`; `POST /recon/runs` returns 422
   until the template is approved.

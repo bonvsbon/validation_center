@@ -52,8 +52,8 @@ class MockExtractor(Extractor):
     name = "mock-extractor/1.0.0"
 
     def extract(self, pdf: PdfDoc) -> ExtractionResult:
-        if pdf.is_scanned:
-            raise ValueError("PDF appears scanned (no text layer); OCR required before extraction")
+        if not pdf.full_text.strip():
+            raise ValueError("PDF has no text (scanned); provide an OCR engine to load_pdf()")
 
         result = ExtractionResult(model=self.name, prompt_version="n/a")
         section = None
@@ -138,8 +138,8 @@ class AnthropicExtractor(Extractor):
     def extract(self, pdf: PdfDoc) -> ExtractionResult:
         if not self.api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set; cannot run AnthropicExtractor")
-        if pdf.is_scanned:
-            raise ValueError("PDF appears scanned; OCR required before extraction")
+        if not pdf.full_text.strip():
+            raise ValueError("PDF has no text (scanned); provide an OCR engine to load_pdf()")
         import anthropic
         client = anthropic.Anthropic(api_key=self.api_key)
         resp = client.messages.create(
