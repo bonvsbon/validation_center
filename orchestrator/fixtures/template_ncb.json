@@ -1,0 +1,47 @@
+{
+  "template_id": "tmpl_ncb_m16",
+  "version": "1.0.0",
+  "fields": [
+    { "field_key": "account_no",          "datatype": "STRING", "is_key": true },
+    { "field_key": "id_card",             "datatype": "STRING", "is_key": true },
+    { "field_key": "outstanding_balance", "datatype": "DECIMAL" },
+    { "field_key": "status",              "datatype": "ENUM" },
+    { "field_key": "rate",                "datatype": "DECIMAL" },
+    { "field_key": "open_date",           "datatype": "DATE" },
+    { "field_key": "term",                "datatype": "INTEGER" },
+    { "field_key": "install",             "datatype": "DECIMAL" },
+    { "field_key": "total",               "datatype": "DECIMAL" }
+  ],
+  "rules": [
+    { "rule_id": "r_id_eq",     "rule_key": "id_card_equal",   "type": "EQUALITY",
+      "severity": "ERROR",   "target_field_keys": ["id_card"] },
+
+    { "rule_id": "r_bal_tol",   "rule_key": "balance_tolerance", "type": "TOLERANCE",
+      "severity": "ERROR",   "params": { "tolerance": 0.01, "scale": 4 },
+      "target_field_keys": ["outstanding_balance"] },
+
+    { "rule_id": "r_rate_rng",  "rule_key": "rate_range",      "type": "RANGE",
+      "severity": "WARNING", "params": { "min": 0, "max": 36 },
+      "target_field_keys": ["rate"] },
+
+    { "rule_id": "r_id_fmt",    "rule_key": "id_card_format",  "type": "REGEX",
+      "severity": "ERROR",   "params": { "pattern": "^[0-9]{13}$" },
+      "target_field_keys": ["id_card"] },
+
+    { "rule_id": "r_status_nn", "rule_key": "status_present",  "type": "NOT_NULL",
+      "severity": "ERROR",   "target_field_keys": ["status"] },
+
+    { "rule_id": "r_status_lk", "rule_key": "status_code",     "type": "LOOKUP",
+      "severity": "ERROR",   "params": { "code_list": "NCB_ACCOUNT_STATUS" },
+      "target_field_keys": ["status"] },
+
+    { "rule_id": "r_open_dt",   "rule_key": "open_date_valid", "type": "DATE_VALID",
+      "severity": "ERROR",   "params": { "format": "%Y-%m-%d", "not_future": true },
+      "target_field_keys": ["open_date"] },
+
+    { "rule_id": "r_cf_term",   "rule_key": "term_x_install",  "type": "CROSS_FIELD",
+      "severity": "WARNING",
+      "params": { "lhs": "f_term * f_install", "rhs": "f_total", "tolerance": 1 },
+      "target_field_keys": ["term", "install", "total"] }
+  ]
+}

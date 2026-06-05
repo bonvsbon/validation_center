@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Orchestrator run outputs
+orchestrator/out/
+*.parquet
+
+# .NET
+dotnet/**/bin/
+dotnet/**/obj/
+dotnet/out/
+
+# Reports
+*.xlsx
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+*.pdf

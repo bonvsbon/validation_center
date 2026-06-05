@@ -1,0 +1,8 @@
+{
+  "NCB_ACCOUNT_STATUS": [
+    { "item_code": "11", "active": true },
+    { "item_code": "13", "active": true },
+    { "item_code": "20", "active": true },
+    { "item_code": "30", "active": false }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "mapping_id": "map_ncb_001",
+  "template_version": "1.0.0",
+  "expected_side": "SOURCE",
+  "key_pairs": [
+    { "field_key": "account_no", "src_col": "ACCNO",  "dst_col": "ACCNO",
+      "src_transform": { "op": "trim" }, "dst_transform": { "op": "trim" } },
+    { "field_key": "id_card",    "src_col": "IDCARD", "dst_col": "IDCARD",
+      "src_transform": { "op": "trim" }, "dst_transform": { "op": "trim" } }
+  ],
+  "field_bindings": [
+    { "field_key": "id_card",             "src_col": "IDCARD",      "dst_col": "IDCARD",
+      "src_transform": { "op": "trim" }, "dst_transform": { "op": "trim" } },
+    { "field_key": "outstanding_balance", "src_col": "OUTSTANDING", "dst_col": "OUTSTANDING" },
+    { "field_key": "status",              "src_col": "STATUS",      "dst_col": "STATUS",
+      "src_transform": { "op": "trim" }, "dst_transform": { "op": "trim" } },
+    { "field_key": "rate",                "src_col": "RATE",        "dst_col": "RATE" },
+    { "field_key": "open_date",           "src_col": "OPENDATE",    "dst_col": "OPENDATE",
+      "src_transform": { "op": "trim" }, "dst_transform": { "op": "trim" } },
+    { "field_key": "term",                "src_col": "TERM",        "dst_col": "TERM" },
+    { "field_key": "install",             "src_col": "INSTALL",     "dst_col": "INSTALL" },
+    { "field_key": "total",               "src_col": "TOTAL",       "dst_col": "TOTAL" }
+  ]
+}

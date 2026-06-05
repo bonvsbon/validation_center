@@ -1,0 +1,424 @@
+{
+  "template_id": "tmpl_demo",
+  "source_dataset_id": "ds_src",
+  "dest_dataset_id": "ds_dst",
+  "model": "mock-suggester/1.0.0",
+  "nodes": [
+    {
+      "id": "pdf_account_no",
+      "type": "PDF_FIELD",
+      "label": "account_no",
+      "ref": "account_no",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": "pdf_id_card",
+      "type": "PDF_FIELD",
+      "label": "id_card",
+      "ref": "id_card",
+      "x": 0,
+      "y": 90
+    },
+    {
+      "id": "pdf_outstanding_balance",
+      "type": "PDF_FIELD",
+      "label": "outstanding_balance",
+      "ref": "outstanding_balance",
+      "x": 0,
+      "y": 180
+    },
+    {
+      "id": "pdf_status",
+      "type": "PDF_FIELD",
+      "label": "status",
+      "ref": "status",
+      "x": 0,
+      "y": 270
+    },
+    {
+      "id": "pdf_rate",
+      "type": "PDF_FIELD",
+      "label": "rate",
+      "ref": "rate",
+      "x": 0,
+      "y": 360
+    },
+    {
+      "id": "pdf_open_date",
+      "type": "PDF_FIELD",
+      "label": "open_date",
+      "ref": "open_date",
+      "x": 0,
+      "y": 450
+    },
+    {
+      "id": "pdf_term",
+      "type": "PDF_FIELD",
+      "label": "term",
+      "ref": "term",
+      "x": 0,
+      "y": 540
+    },
+    {
+      "id": "pdf_install",
+      "type": "PDF_FIELD",
+      "label": "install",
+      "ref": "install",
+      "x": 0,
+      "y": 630
+    },
+    {
+      "id": "pdf_total",
+      "type": "PDF_FIELD",
+      "label": "total",
+      "ref": "total",
+      "x": 0,
+      "y": 720
+    },
+    {
+      "id": "src_ACCNO",
+      "type": "SOURCE_FIELD",
+      "label": "ACCNO",
+      "ref": "ACCNO",
+      "x": 360,
+      "y": 0
+    },
+    {
+      "id": "src_IDCARD",
+      "type": "SOURCE_FIELD",
+      "label": "IDCARD",
+      "ref": "IDCARD",
+      "x": 360,
+      "y": 90
+    },
+    {
+      "id": "src_OUTSTANDING",
+      "type": "SOURCE_FIELD",
+      "label": "OUTSTANDING",
+      "ref": "OUTSTANDING",
+      "x": 360,
+      "y": 180
+    },
+    {
+      "id": "src_STATUS",
+      "type": "SOURCE_FIELD",
+      "label": "STATUS",
+      "ref": "STATUS",
+      "x": 360,
+      "y": 270
+    },
+    {
+      "id": "src_RATE",
+      "type": "SOURCE_FIELD",
+      "label": "RATE",
+      "ref": "RATE",
+      "x": 360,
+      "y": 360
+    },
+    {
+      "id": "src_OPENDATE",
+      "type": "SOURCE_FIELD",
+      "label": "OPENDATE",
+      "ref": "OPENDATE",
+      "x": 360,
+      "y": 450
+    },
+    {
+      "id": "src_TERM",
+      "type": "SOURCE_FIELD",
+      "label": "TERM",
+      "ref": "TERM",
+      "x": 360,
+      "y": 540
+    },
+    {
+      "id": "src_INSTALL",
+      "type": "SOURCE_FIELD",
+      "label": "INSTALL",
+      "ref": "INSTALL",
+      "x": 360,
+      "y": 630
+    },
+    {
+      "id": "src_TOTAL",
+      "type": "SOURCE_FIELD",
+      "label": "TOTAL",
+      "ref": "TOTAL",
+      "x": 360,
+      "y": 720
+    },
+    {
+      "id": "dst_ACCNO",
+      "type": "DEST_FIELD",
+      "label": "ACCNO",
+      "ref": "ACCNO",
+      "x": 720,
+      "y": 0
+    },
+    {
+      "id": "dst_IDCARD",
+      "type": "DEST_FIELD",
+      "label": "IDCARD",
+      "ref": "IDCARD",
+      "x": 720,
+      "y": 90
+    },
+    {
+      "id": "dst_OUTSTANDING",
+      "type": "DEST_FIELD",
+      "label": "OUTSTANDING",
+      "ref": "OUTSTANDING",
+      "x": 720,
+      "y": 180
+    },
+    {
+      "id": "dst_STATUS",
+      "type": "DEST_FIELD",
+      "label": "STATUS",
+      "ref": "STATUS",
+      "x": 720,
+      "y": 270
+    },
+    {
+      "id": "dst_RATE",
+      "type": "DEST_FIELD",
+      "label": "RATE",
+      "ref": "RATE",
+      "x": 720,
+      "y": 360
+    },
+    {
+      "id": "dst_OPENDATE",
+      "type": "DEST_FIELD",
+      "label": "OPENDATE",
+      "ref": "OPENDATE",
+      "x": 720,
+      "y": 450
+    },
+    {
+      "id": "dst_TERM",
+      "type": "DEST_FIELD",
+      "label": "TERM",
+      "ref": "TERM",
+      "x": 720,
+      "y": 540
+    },
+    {
+      "id": "dst_INSTALL",
+      "type": "DEST_FIELD",
+      "label": "INSTALL",
+      "ref": "INSTALL",
+      "x": 720,
+      "y": 630
+    },
+    {
+      "id": "dst_TOTAL",
+      "type": "DEST_FIELD",
+      "label": "TOTAL",
+      "ref": "TOTAL",
+      "x": 720,
+      "y": 720
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_account_no_src",
+      "kind": "PDF_TO_SOURCE",
+      "from_node": "pdf_account_no",
+      "to_node": "src_ACCNO",
+      "is_key": true,
+      "confidence": 0.76,
+      "reasoning": "name similarity 0.71, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_account_no_dst",
+      "kind": "SOURCE_TO_DEST",
+      "from_node": "src_ACCNO",
+      "to_node": "dst_ACCNO",
+      "is_key": true,
+      "confidence": 0.76,
+      "reasoning": "name similarity 0.71, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_id_card_src",
+      "kind": "PDF_TO_SOURCE",
+      "from_node": "pdf_id_card",
+      "to_node": "src_IDCARD",
+      "is_key": true,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype mismatch",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_id_card_dst",
+      "kind": "SOURCE_TO_DEST",
+      "from_node": "src_IDCARD",
+      "to_node": "dst_IDCARD",
+      "is_key": true,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype mismatch",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_outstanding_balance_src",
+      "kind": "PDF_TO_SOURCE",
+      "from_node": "pdf_outstanding_balance",
+      "to_node": "src_OUTSTANDING",
+      "is_key": false,
+      "confidence": 0.81,
+      "reasoning": "name similarity 0.76, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_outstanding_balance_dst",
+      "kind": "SOURCE_TO_DEST",
+      "from_node": "src_OUTSTANDING",
+      "to_node": "dst_OUTSTANDING",
+      "is_key": false,
+      "confidence": 0.76,
+      "reasoning": "name similarity 0.76, datatype mismatch",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_status_src",
+      "kind": "PDF_TO_SOURCE",
+      "from_node": "pdf_status",
+      "to_node": "src_STATUS",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype mismatch",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_status_dst",
+      "kind": "SOURCE_TO_DEST",
+      "from_node": "src_STATUS",
+      "to_node": "dst_STATUS",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype mismatch",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_rate_src",
+      "kind": "PDF_TO_SOURCE",
+      "from_node": "pdf_rate",
+      "to_node": "src_RATE",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_rate_dst",
+      "kind": "SOURCE_TO_DEST",
+      "from_node": "src_RATE",
+      "to_node": "dst_RATE",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_open_date_src",
+      "kind": "PDF_TO_SOURCE",
+      "from_node": "pdf_open_date",
+      "to_node": "src_OPENDATE",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_open_date_dst",
+      "kind": "SOURCE_TO_DEST",
+      "from_node": "src_OPENDATE",
+      "to_node": "dst_OPENDATE",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_term_src",
+      "kind": "PDF_TO_SOURCE",
+      "from_node": "pdf_term",
+      "to_node": "src_TERM",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_term_dst",
+      "kind": "SOURCE_TO_DEST",
+      "from_node": "src_TERM",
+      "to_node": "dst_TERM",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_install_src",
+      "kind": "PDF_TO_SOURCE",
+      "from_node": "pdf_install",
+      "to_node": "src_INSTALL",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_install_dst",
+      "kind": "SOURCE_TO_DEST",
+      "from_node": "src_INSTALL",
+      "to_node": "dst_INSTALL",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_total_src",
+      "kind": "PDF_TO_SOURCE",
+      "from_node": "pdf_total",
+      "to_node": "src_TOTAL",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    },
+    {
+      "id": "e_total_dst",
+      "kind": "SOURCE_TO_DEST",
+      "from_node": "src_TOTAL",
+      "to_node": "dst_TOTAL",
+      "is_key": false,
+      "confidence": 1.0,
+      "reasoning": "name similarity 1.00, datatype compatible",
+      "review_status": "SUGGESTED",
+      "ai_suggested": true
+    }
+  ]
+}

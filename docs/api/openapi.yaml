@@ -1,0 +1,571 @@
+openapi: 3.0.3
+info:
+  title: Validation Center API
+  version: 0.1.0
+  description: >
+    Phase 0 + Phase 1 contract for the AI-assisted Data Comparison /
+    Reconciliation Platform (deterministic core). AI suggestion (P4) and PDF
+    extraction (P3) endpoints are reserved and not included here.
+    Principle: AI suggests, humans approve, the rule engine judges.
+
+servers:
+  - url: /api/v1
+
+# ---------------------------------------------------------------------------
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+  - name: Templates
+  - name: Datasets
+  - name: Mappings
+  - name: Reconciliation
+  - name: Reports
+  - name: Audit
+
+paths:
+  # ----------------------------- AUTH ------------------------------------
+  /me:
+    get:
+      tags: [Auth]
+      summary: Current user + roles
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+
+  # --------------------------- TEMPLATES ---------------------------------
+  /templates:
+    get:
+      tags: [Templates]
+      summary: List templates
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Template' }
+    post:
+      tags: [Templates]
+      summary: Create a template (creates an initial DRAFT version)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TemplateCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Template' }
+
+  /templates/{templateId}/versions:
+    post:
+      tags: [Templates]
+      summary: Create a new DRAFT version (clone of latest or empty)
+      parameters:
+        - { name: templateId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cloneFromVersionId: { type: string, format: uuid, nullable: true }
+                version: { type: string, example: '1.1.0' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TemplateVersion' }
+
+  /template-versions/{versionId}:
+    get:
+      tags: [Templates]
+      summary: Get a template version with fields & rules
+      parameters:
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TemplateVersionDetail' }
+
+  /template-versions/{versionId}/fields:
+    post:
+      tags: [Templates]
+      summary: Add/replace a field (DRAFT only)
+      parameters:
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FieldInput' }
+      responses:
+        '201': { description: Created }
+        '409': { description: Version is locked (PUBLISHED) }
+
+  /template-versions/{versionId}/rules:
+    post:
+      tags: [Templates]
+      summary: Add a comparison rule (DRAFT only)
+      parameters:
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RuleInput' }
+      responses:
+        '201': { description: Created }
+
+  /template-versions/{versionId}/publish:
+    post:
+      tags: [Templates]
+      summary: Publish version (locks it immutably). Requires APPROVER role.
+      parameters:
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Published
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TemplateVersion' }
+        '422': { description: Validation failed (e.g. fields/rules not approved) }
+
+  # ---------------------------- DATASETS ---------------------------------
+  /datasets:
+    post:
+      tags: [Datasets]
+      summary: Upload a Source/Destination dataset (CSV/Excel). Async profiling.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                role: { $ref: '#/components/schemas/DatasetRole' }
+                name: { type: string }
+                file: { type: string, format: binary }
+      responses:
+        '202':
+          description: Accepted (profiling queued)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dataset' }
+
+  /datasets/{datasetId}/schema:
+    get:
+      tags: [Datasets]
+      summary: Get inferred columns + profile
+      parameters:
+        - { name: datasetId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DatasetColumn' }
+
+  # ---------------------------- MAPPINGS ---------------------------------
+  /mappings:
+    post:
+      tags: [Mappings]
+      summary: Create a mapping for a template version + datasets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MappingCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Mapping' }
+
+  /mappings/{mappingId}/edges:
+    post:
+      tags: [Mappings]
+      summary: Create an edge (PDF→Source or Source→Dest)
+      parameters:
+        - { name: mappingId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EdgeInput' }
+      responses:
+        '201': { description: Created }
+
+  /mappings/{mappingId}/edges/{edgeId}:
+    patch:
+      tags: [Mappings]
+      summary: Update edge (transform / rule binding / key flag / approval state)
+      parameters:
+        - { name: mappingId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: edgeId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EdgePatch' }
+      responses:
+        '200': { description: Updated }
+
+  /mappings/{mappingId}/approve:
+    post:
+      tags: [Mappings]
+      summary: Mark mapping APPROVED (all key/compare edges must be approved)
+      parameters:
+        - { name: mappingId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Approved }
+        '422': { description: Some edges not approved }
+
+  # ------------------------- RECONCILIATION ------------------------------
+  /recon/runs:
+    post:
+      tags: [Reconciliation]
+      summary: Trigger a reconciliation run (async batch). Requires OPERATOR role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RunCreate' }
+      responses:
+        '202':
+          description: Accepted (queued)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Run' }
+        '422': { description: Inputs not in runnable state }
+    get:
+      tags: [Reconciliation]
+      summary: List runs
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Run' }
+
+  /recon/runs/{runId}:
+    get:
+      tags: [Reconciliation]
+      summary: Run status + summary
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunDetail' }
+
+  /recon/runs/{runId}/results:
+    get:
+      tags: [Reports]
+      summary: Drill-down rows (filter by category/field)
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: category, in: query, schema: { $ref: '#/components/schemas/ResultCategory' } }
+        - { name: fieldKey, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 50 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ResultRow' }
+
+  /recon/runs/{runId}/export:
+    get:
+      tags: [Reports]
+      summary: Export report (Excel). Embeds run + version metadata.
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: format, in: query, schema: { type: string, enum: [xlsx, csv], default: xlsx } }
+      responses:
+        '200':
+          description: Binary file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+
+  # ------------------------------ AUDIT ----------------------------------
+  /audit:
+    get:
+      tags: [Audit]
+      summary: Query audit log by entity
+      parameters:
+        - { name: entityType, in: query, schema: { type: string } }
+        - { name: entityId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditEntry' }
+
+# ---------------------------------------------------------------------------
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Me:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: string }
+        roles: { type: array, items: { type: string } }
+
+    Template:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        name: { type: string }
+        description: { type: string }
+        currentVersionId: { type: string, format: uuid, nullable: true }
+    TemplateCreate:
+      type: object
+      required: [key, name]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        description: { type: string }
+
+    TemplateVersion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        templateId: { type: string, format: uuid }
+        version: { type: string }
+        status: { type: string, enum: [DRAFT, IN_REVIEW, PUBLISHED, DEPRECATED] }
+        locked: { type: boolean }
+        publishedAt: { type: string, format: date-time, nullable: true }
+    TemplateVersionDetail:
+      allOf:
+        - $ref: '#/components/schemas/TemplateVersion'
+        - type: object
+          properties:
+            fields: { type: array, items: { $ref: '#/components/schemas/Field' } }
+            rules: { type: array, items: { $ref: '#/components/schemas/Rule' } }
+
+    Field:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        fieldKey: { type: string }
+        name: { type: string }
+        labelTh: { type: string }
+        datatype: { $ref: '#/components/schemas/Datatype' }
+        required: { type: boolean }
+        format: { type: string, nullable: true }
+        enumCodeListId: { type: string, format: uuid, nullable: true }
+        reviewStatus: { $ref: '#/components/schemas/ReviewStatus' }
+    FieldInput:
+      type: object
+      required: [fieldKey, name, datatype]
+      properties:
+        fieldKey: { type: string }
+        name: { type: string }
+        labelTh: { type: string }
+        datatype: { $ref: '#/components/schemas/Datatype' }
+        required: { type: boolean, default: false }
+        format: { type: string }
+        enumCodeListId: { type: string, format: uuid }
+
+    Rule:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        ruleKey: { type: string }
+        type: { $ref: '#/components/schemas/RuleType' }
+        params: { type: object, additionalProperties: true }
+        severity: { type: string, enum: [ERROR, WARNING, INFO] }
+        targetFieldIds: { type: array, items: { type: string, format: uuid } }
+        reviewStatus: { $ref: '#/components/schemas/ReviewStatus' }
+    RuleInput:
+      type: object
+      required: [ruleKey, type, targetFieldIds]
+      properties:
+        ruleKey: { type: string }
+        type: { $ref: '#/components/schemas/RuleType' }
+        params: { type: object, additionalProperties: true }
+        severity: { type: string, enum: [ERROR, WARNING, INFO], default: ERROR }
+        targetFieldIds: { type: array, items: { type: string, format: uuid } }
+
+    Dataset:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        role: { $ref: '#/components/schemas/DatasetRole' }
+        name: { type: string }
+        origin: { type: string, enum: [CSV, EXCEL] }
+        rowCount: { type: integer, nullable: true }
+        status: { type: string, enum: [UPLOADED, PROFILED, READY, FAILED] }
+    DatasetColumn:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        columnName: { type: string }
+        ordinal: { type: integer }
+        inferredDatatype: { $ref: '#/components/schemas/Datatype' }
+        nullCount: { type: integer, nullable: true }
+        distinctCount: { type: integer, nullable: true }
+        sampleValues: { type: array, items: { type: string } }
+
+    Mapping:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        templateVersionId: { type: string, format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [DRAFT, APPROVED, ARCHIVED] }
+        sourceDatasetId: { type: string, format: uuid }
+        destDatasetId: { type: string, format: uuid }
+    MappingCreate:
+      type: object
+      required: [templateVersionId, name, sourceDatasetId, destDatasetId]
+      properties:
+        templateVersionId: { type: string, format: uuid }
+        name: { type: string }
+        sourceDatasetId: { type: string, format: uuid }
+        destDatasetId: { type: string, format: uuid }
+
+    EdgeInput:
+      type: object
+      required: [fromNodeRef, toNodeRef, kind]
+      properties:
+        fromNodeRef: { $ref: '#/components/schemas/NodeRef' }
+        toNodeRef: { $ref: '#/components/schemas/NodeRef' }
+        kind: { type: string, enum: [PDF_TO_SOURCE, SOURCE_TO_DEST] }
+        transform: { type: object, nullable: true, additionalProperties: true }
+        isKey: { type: boolean, default: false }
+        ruleId: { type: string, format: uuid, nullable: true }
+    EdgePatch:
+      type: object
+      properties:
+        transform: { type: object, nullable: true, additionalProperties: true }
+        isKey: { type: boolean }
+        ruleId: { type: string, format: uuid, nullable: true }
+        reviewStatus: { $ref: '#/components/schemas/ReviewStatus' }   # APPROVE/REJECT/EDIT
+    NodeRef:
+      type: object
+      description: References a template field (PDF side) OR a dataset column (src/dst).
+      properties:
+        type: { type: string, enum: [PDF_FIELD, SOURCE_FIELD, DEST_FIELD] }
+        templateFieldId: { type: string, format: uuid, nullable: true }
+        datasetColumnId: { type: string, format: uuid, nullable: true }
+
+    RunCreate:
+      type: object
+      required: [templateVersionId, mappingId, sourceDatasetId, destDatasetId]
+      properties:
+        templateVersionId: { type: string, format: uuid }
+        mappingId: { type: string, format: uuid }
+        sourceDatasetId: { type: string, format: uuid }
+        destDatasetId: { type: string, format: uuid }
+    Run:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED] }
+        ruleEngineVersion: { type: string }
+        queuedAt: { type: string, format: date-time }
+    RunDetail:
+      allOf:
+        - $ref: '#/components/schemas/Run'
+        - type: object
+          properties:
+            templateVersionId: { type: string, format: uuid }
+            mappingId: { type: string, format: uuid }
+            summary: { $ref: '#/components/schemas/Summary' }
+
+    Summary:
+      type: object
+      properties:
+        totalRecords: { type: integer }
+        matchCount: { type: integer }
+        mismatchCount: { type: integer }
+        missingSrc: { type: integer }
+        missingDst: { type: integer }
+        duplicateCount: { type: integer }
+        exceptionCount: { type: integer }
+        bySeverity: { type: object, additionalProperties: { type: integer } }
+        byField: { type: object, additionalProperties: { type: integer } }
+
+    ResultRow:
+      type: object
+      properties:
+        recordKey: { type: string }
+        category: { $ref: '#/components/schemas/ResultCategory' }
+        fieldKey: { type: string, nullable: true }
+        ruleId: { type: string, format: uuid, nullable: true }
+        severity: { type: string, enum: [ERROR, WARNING, INFO], nullable: true }
+        expected: { type: string, nullable: true }
+        actual: { type: string, nullable: true }
+        verdict: { type: string, nullable: true }
+        detail: { type: object, additionalProperties: true }
+
+    AuditEntry:
+      type: object
+      properties:
+        id: { type: integer }
+        actorUserId: { type: string, format: uuid, nullable: true }
+        entityType: { type: string }
+        entityId: { type: string, format: uuid, nullable: true }
+        action: { type: string }
+        before: { type: object, nullable: true, additionalProperties: true }
+        after: { type: object, nullable: true, additionalProperties: true }
+        correlationId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    # ----- shared enums -----
+    Datatype:
+      type: string
+      enum: [STRING, INTEGER, DECIMAL, DATE, DATETIME, BOOLEAN, ENUM]
+    ReviewStatus:
+      type: string
+      enum: [SUGGESTED, APPROVED, REJECTED, EDITED]
+    RuleType:
+      type: string
+      enum: [EQUALITY, TOLERANCE, RANGE, REGEX, NOT_NULL, LOOKUP, DATE_VALID, CROSS_FIELD]
+    DatasetRole:
+      type: string
+      enum: [SOURCE, DESTINATION]
+    ResultCategory:
+      type: string
+      enum: [MATCH, MISMATCH, MISSING_IN_SOURCE, MISSING_IN_DEST, DUPLICATE, EXCEPTION]

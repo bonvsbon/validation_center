@@ -1,0 +1,59 @@
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #111827; background: #f9fafb;
+}
+
+.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+
+.toolbar {
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  background: #1f2937; color: #fff; border-bottom: 1px solid #111827;
+}
+.toolbar h1 { font-size: 15px; margin: 0; font-weight: 600; }
+.toolbar .spacer { flex: 1; }
+.toolbar button {
+  background: #374151; color: #fff; border: 1px solid #4b5563; border-radius: 6px;
+  padding: 6px 12px; font-size: 13px; cursor: pointer;
+}
+.toolbar button:hover { background: #4b5563; }
+.toolbar button.primary { background: #2563eb; border-color: #2563eb; }
+.toolbar button.primary:hover { background: #1d4ed8; }
+
+.chip { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.chip.suggested { background: #fef3c7; color: #92400e; }
+.chip.approved  { background: #dcfce7; color: #166534; }
+.chip.rejected  { background: #fee2e2; color: #991b1b; }
+.chip.low       { background: #fde68a; color: #92400e; }
+
+.main { display: grid; grid-template-columns: 1fr 300px; height: 100%; }
+.canvas { height: 100%; }
+.flow-col-label {
+  position: absolute; top: 8px; font-size: 12px; font-weight: 700; color: #6b7280;
+  text-transform: uppercase; letter-spacing: .04em; z-index: 5;
+}
+
+.node {
+  padding: 8px 10px; border-radius: 8px; border: 1.5px solid #d1d5db;
+  background: #fff; font-size: 12px; min-width: 150px; box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+.node .k { font-weight: 600; }
+.node .t { color: #6b7280; font-size: 11px; }
+.node.PDF_FIELD   { border-color: #6366f1; background: #eef2ff; }
+.node.SOURCE_FIELD{ border-color: #0ea5e9; background: #f0f9ff; }
+.node.DEST_FIELD  { border-color: #10b981; background: #ecfdf5; }
+
+.sidebar { border-left: 1px solid #e5e7eb; background: #fff; padding: 14px; overflow: auto; }
+.sidebar h2 { font-size: 13px; margin: 0 0 8px; text-transform: uppercase; color: #6b7280; }
+.kv { font-size: 13px; margin: 6px 0; }
+.kv b { display: inline-block; width: 92px; color: #6b7280; font-weight: 500; }
+.bar { height: 8px; border-radius: 4px; background: #e5e7eb; overflow: hidden; margin-top: 4px; }
+.bar > i { display: block; height: 100%; background: #2563eb; }
+.edge-actions { display: flex; gap: 8px; margin-top: 12px; }
+.edge-actions button { flex: 1; padding: 6px; border-radius: 6px; border: 1px solid #d1d5db; cursor: pointer; }
+.edge-actions .approve { background: #dcfce7; border-color: #86efac; }
+.edge-actions .reject  { background: #fee2e2; border-color: #fca5a5; }
+.hint { color: #9ca3af; font-size: 12px; }
+.reason { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; font-size: 12px; }
+pre { background: #0b1020; color: #d1d5db; padding: 10px; border-radius: 6px; font-size: 11px; overflow: auto; }

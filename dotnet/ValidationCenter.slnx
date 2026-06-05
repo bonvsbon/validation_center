@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ValidationCenter.Cli/ValidationCenter.Cli.csproj" />
+  <Project Path="ValidationCenter.RuleEngine/ValidationCenter.RuleEngine.csproj" />
+</Solution>
