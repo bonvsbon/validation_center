@@ -79,9 +79,21 @@ def _extract():
 def test_not_scanned_and_has_many_fields():
     doc, res = _extract()
     assert doc.is_scanned is False
-    assert len(res.fields) >= 35
+    assert len(res.fields) >= 55
     segments = {f.field_key.split(".")[0] for f in res.fields}
     assert {"header", "pn", "id", "pa", "tl"} <= segments
+    # the long ACCOUNT (TL) segment is fully walked, not cut off at a page break
+    tl = [f for f in res.fields if f.field_key.startswith("tl.")]
+    assert len(tl) >= 25 and max(f.citation.page for f in tl) >= 31
+
+
+@needs_pdf
+def test_tl_amounts_are_decimal():
+    _, res = _extract()
+    decimals = {f.field_key for f in res.fields if f.datatype == "DECIMAL"}
+    # numeric money fields in the account segment must infer DECIMAL (never float)
+    assert "tl.credit_limit_original_loan_amount" in decimals
+    assert any("amount" in k for k in decimals) and len(decimals) >= 3
 
 
 @needs_pdf

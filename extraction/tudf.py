@@ -27,14 +27,16 @@ from .contract import (ExtractionResult, ExtractedField, ExtractedRule, Citation
 from .extractor import Extractor
 
 # segment title -> (code, format) ; format: "fixed" | "tagged"
+# Titles must match the WHOLE line ($ anchored): a sentence in a field description
+# such as "... the As Of Date in the TUDF Header Segment." must NOT reset the segment.
 _SEGMENTS: List[Tuple[re.Pattern, str, str]] = [
-    (re.compile(r"^TUDF Header Segment", re.I), "header", "fixed"),
-    (re.compile(r"^Name Segment \(PN\)", re.I), "pn", "tagged"),
-    (re.compile(r"^Identification Segment \(ID\)", re.I), "id", "tagged"),
-    (re.compile(r"^Address Segment \(PA\)", re.I), "pa", "tagged"),
-    (re.compile(r"^Account Segment \(TL\)", re.I), "tl", "tagged"),
-    (re.compile(r"^End of Subject", re.I), "es", "fixed"),
-    (re.compile(r"^Trailer Segment \(TRLR\)", re.I), "trlr", "fixed"),
+    (re.compile(r"^TUDF Header Segment$", re.I), "header", "fixed"),
+    (re.compile(r"^Name Segment \(PN\)$", re.I), "pn", "tagged"),
+    (re.compile(r"^Identification Segment \(ID\)$", re.I), "id", "tagged"),
+    (re.compile(r"^Address Segment \(PA\)$", re.I), "pa", "tagged"),
+    (re.compile(r"^Account Segment \(TL\)$", re.I), "tl", "tagged"),
+    (re.compile(r"^End of Subject( Segment)?( \(ES\))?$", re.I), "es", "fixed"),
+    (re.compile(r"^Trailer Segment \(TRLR\)$", re.I), "trlr", "fixed"),
 ]
 
 _CHAR = r"(A/N|AN|A|N)"

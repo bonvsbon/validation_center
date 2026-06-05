@@ -29,8 +29,8 @@ def test_tudf_upload_and_extract():
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["status"] == "DRAFT"
-    # many SUGGESTED fields+rules awaiting human review
-    assert body["pending_review"]["total_pending"] >= 50
+    # many SUGGESTED fields+rules awaiting human review (full TUDF spec)
+    assert body["pending_review"]["total_pending"] >= 90
     assert body["extraction_run"]["model"].startswith("tudf-extractor")
 
     # the draft can be reviewed via the API
