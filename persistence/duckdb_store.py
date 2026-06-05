@@ -50,6 +50,10 @@ CREATE TABLE IF NOT EXISTS recon_results (
     rule_id VARCHAR, severity VARCHAR, expected VARCHAR, actual VARCHAR,
     verdict VARCHAR, detail VARCHAR
 );
+CREATE TABLE IF NOT EXISTS artifacts (
+    kind VARCHAR, id VARCHAR, body VARCHAR, created_at VARCHAR,
+    PRIMARY KEY (kind, id)
+);
 """
 
 
@@ -165,6 +169,26 @@ class DuckDBStore(ReconStore):
                    WHERE run_id=? AND field_key IS NULL ORDER BY record_key""",
                 [run_id]).fetchall()
         return [(r[0], r[1]) for r in rows]
+
+    # ---- artifacts ----
+    def put_artifact(self, kind: str, artifact_id: str, body: Dict[str, Any]) -> None:
+        with self._lock:
+            self._con.execute("DELETE FROM artifacts WHERE kind=? AND id=?", [kind, artifact_id])
+            self._con.execute(
+                "INSERT INTO artifacts VALUES (?,?,?,?)",
+                [kind, artifact_id, json.dumps(body, ensure_ascii=False), _iso()])
+
+    def get_artifact(self, kind: str, artifact_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            row = self._con.execute(
+                "SELECT body FROM artifacts WHERE kind=? AND id=?", [kind, artifact_id]).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def list_artifacts(self, kind: str) -> List[Tuple[str, Dict[str, Any]]]:
+        with self._lock:
+            rows = self._con.execute(
+                "SELECT id, body FROM artifacts WHERE kind=?", [kind]).fetchall()
+        return [(r[0], json.loads(r[1])) for r in rows]
 
     def close(self) -> None:
         with self._lock:

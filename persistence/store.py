@@ -86,6 +86,14 @@ class ReconStore:
                     offset: int = 0, limit: int = 50) -> Tuple[int, List[Dict[str, Any]]]: ...
     def get_rollup(self, run_id: str) -> List[Tuple[str, str]]: ...
 
+    # ---- artifacts (templates / mappings / code-lists) — optional durability ----
+    def put_artifact(self, kind: str, artifact_id: str, body: Dict[str, Any]) -> None:
+        raise NotImplementedError
+    def get_artifact(self, kind: str, artifact_id: str) -> Optional[Dict[str, Any]]:
+        raise NotImplementedError
+    def list_artifacts(self, kind: str) -> List[Tuple[str, Dict[str, Any]]]:
+        raise NotImplementedError
+
 
 # =====================================================================
 class InMemoryStore(ReconStore):
@@ -93,6 +101,16 @@ class InMemoryStore(ReconStore):
         self._runs: Dict[str, ReconRunRecord] = {}
         self._results: Dict[str, List[Dict[str, Any]]] = {}
         self._rollup: Dict[str, List[Tuple[str, str]]] = {}
+        self._artifacts: Dict[Tuple[str, str], Dict[str, Any]] = {}
+
+    def put_artifact(self, kind, artifact_id, body) -> None:
+        self._artifacts[(kind, artifact_id)] = body
+
+    def get_artifact(self, kind, artifact_id):
+        return self._artifacts.get((kind, artifact_id))
+
+    def list_artifacts(self, kind):
+        return [(aid, body) for (k, aid), body in self._artifacts.items() if k == kind]
 
     def create_run(self, meta: ReconRunRecord) -> str:
         self._runs[meta.run_id] = meta

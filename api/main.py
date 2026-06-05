@@ -104,6 +104,26 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
     app.state.extraction_runs: Dict[str, Dict[str, Any]] = {}
     app.state.suggestions: Dict[str, SuggestedMapping] = {}
 
+    def _persist(kind: str, artifact_id: str, body: Dict[str, Any]) -> None:
+        """Write a spec artifact (template/mapping/code-list) to the durable store,
+        if the store supports it (DuckDBStore/InMemory do; Postgres no-ops here)."""
+        try:
+            app.state.store.put_artifact(kind, artifact_id, body)
+        except NotImplementedError:
+            pass
+
+    def _load_artifacts() -> None:
+        """Reload persisted specs into the in-memory registries on startup so an
+        approved template/mapping survives a restart (local-DB durability)."""
+        for kind, reg in (("template", app.state.templates),
+                          ("mapping", app.state.mappings),
+                          ("code_list", app.state.code_lists)):
+            try:
+                for aid, body in app.state.store.list_artifacts(kind):
+                    reg[aid] = body
+            except NotImplementedError:
+                pass
+
     # dev CORS (Vite serves the canvas; the dev proxy makes this same-origin, but
     # allow cross-origin too so a separately-served build can call the API).
     app.add_middleware(
@@ -128,6 +148,7 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
         cid = new_id()
         with open(os.path.join(_FX, "code_lists.json"), encoding="utf-8") as f:
             app.state.code_lists[cid] = json.load(f)
+        _persist("code_list", cid, app.state.code_lists[cid])
 
         pdf = os.path.join(app.state.work_dir, "demo_spec.pdf")
         build_sample_pdf(pdf)
@@ -138,6 +159,7 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
         approval.approve_all(tmpl, approver="demo")   # template approved; canvas approves the MAPPING
         tid = new_id()
         app.state.templates[tid] = tmpl
+        _persist("template", tid, tmpl)
 
         sm = app.state.suggester.suggest(
             tmpl, app.state.datasets[sid]["columns"],
@@ -154,18 +176,21 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
     def create_template(payload: RegisterJson):
         tid = new_id()
         app.state.templates[tid] = payload.body
+        _persist("template", tid, payload.body)
         return {"id": tid, "version": payload.body.get("version")}
 
     @app.post("/api/v1/mappings", status_code=201)
     def create_mapping(payload: RegisterJson):
         mid = new_id()
         app.state.mappings[mid] = payload.body
+        _persist("mapping", mid, payload.body)
         return {"id": mid}
 
     @app.post("/api/v1/code-lists", status_code=201)
     def create_code_lists(payload: RegisterJson):
         cid = new_id()
         app.state.code_lists[cid] = payload.body
+        _persist("code_list", cid, payload.body)
         return {"id": cid, "lists": list(payload.body.keys())}
 
     @app.post("/api/v1/datasets", status_code=202)
@@ -219,6 +244,7 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
         tmpl = to_draft_template(result, doc, erun.run_id, template_key=template_key)
         tid = new_id()
         app.state.templates[tid] = tmpl
+        _persist("template", tid, tmpl)
         app.state.extraction_runs[erun.run_id] = erun.to_dict()
         return {
             "template_id": tid,
@@ -242,6 +268,7 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
         if not tmpl:
             raise HTTPException(404, "template not found")
         approval.approve_all(tmpl, approver=approver, publish=True)
+        _persist("template", template_id, tmpl)   # persist the approved/published spec
         return {"status": tmpl["status"], "pending_review": approval.pending_review(tmpl)}
 
     # ---------- P4: AI mapping suggestion ----------
@@ -278,6 +305,7 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
             raise HTTPException(422, "approved mapping has no key fields")
         mid = new_id()
         app.state.mappings[mid] = mapping
+        _persist("mapping", mid, mapping)
         return {"mapping_id": mid, "mapping": mapping}
 
     # ---------- reconciliation ----------
@@ -359,6 +387,7 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
     def health():
         return {"status": "ok", "store": type(app.state.store).__name__}
 
+    _load_artifacts()    # restore persisted templates/mappings/code-lists on startup
     return app
 
 
