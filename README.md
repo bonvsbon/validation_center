@@ -79,25 +79,41 @@ break the core.
 - ✅ **PDF AI Extraction — P3** (`extraction/`) — upload a PDF spec → AI proposes a
   **Draft Template** (fields + rules) with citations + confidence, all `SUGGESTED`.
   A human must approve before it can run (enforced). `MockExtractor` (offline) +
-  `AnthropicExtractor` (Claude, structured output). Full loop PDF → draft → approve →
-  reconcile verified end-to-end.
+  `AnthropicExtractor` (Claude, structured output). **OCR path** (`OcrEngine`:
+  `MockOcr` for tests, `TesseractOcr` for prod) recovers scanned PDFs.
+- ✅ **AI Mapping Suggestion — P4** (`suggester/`) — proposes `PDF field → source →
+  dest` edges with confidence + reasoning; a human approves/rejects, then the mapping
+  is materialized. `MockSuggester` (offline) + `AnthropicSuggester` (gated).
+- ✅ **Visual Mapping Canvas — P2** (`frontend/`, React Flow) — review/approve
+  suggested edges, reconcile, drill into issues, download Excel, and browse **run
+  history** — all against the live API (`/demo/bootstrap`).
+- ✅ **Local-DB durability** — runs, results, **and approved specs**
+  (templates/mappings/code-lists) all persist to the DuckDB file and survive a restart.
+- ✅ **CI** (`.github/workflows/ci.yml`) — Python tests + .NET parity + frontend build.
 
 ### Run everything
 ```bash
 pip install -r requirements.txt
-python -m pytest orchestrator api extraction -q          # all Python suites
-cd dotnet && dotnet build ValidationCenter.slnx          # .NET parity
+python -m pytest orchestrator api extraction suggester persistence -q   # 21 tests
+cd dotnet && dotnet build ValidationCenter.slnx                         # .NET parity
+cd frontend && npm install && npm run build                            # canvas build
+# live demo:
+uvicorn api.main:app --port 8000        # API (persists to ./data/vc.duckdb)
+cd frontend && npm run dev              # http://localhost:5173 → "Load from API"
 ```
 
-## The full loop now works
+## The full loop now works (in the browser, end to end)
 ```
-PDF spec ─►(AI)─► Draft Template ─►(human approve)─► Mapping ─►(Rule Engine)─► Report
-   P3            SUGGESTED+citation      gate            P1/P2        deterministic   explainable
+PDF spec ─►(AI extract,+OCR)─► Draft Template ─►(human approve)─┐
+                                  SUGGESTED + citation           │
+   ┌─────────────────────────────────────────────────────────────┘
+   ▼
+ datasets ─►(AI suggest mapping)─► Canvas review/approve ─►(Rule Engine)─► Report
+                 confidence+reason     human gate (visual)   deterministic   Excel + history
 ```
 
 ## Next steps
-- Wire `PostgresStore` against a real database (apply `db/schema.sql`, set DSN).
-- Async run queue + worker (current API runs synchronously for the demo).
-- **P2 Visual Mapping Canvas** (React Flow) over the existing mapping schema.
-- **P4 AI mapping suggestion** (edge proposals + confidence, human approval).
-- OCR path for scanned PDFs; real Anthropic extraction on free-form specs.
+- Wire `PostgresStore` against a real database for multi-process/HA (local default is DuckDB).
+- Real `AnthropicExtractor`/`AnthropicSuggester` on free-form/Thai specs (needs API key),
+  or an Agent-SDK adapter that uses a Claude subscription.
+- Mapping-graph persistence with canvas positions; scheduling; multi-tenant (P6).
