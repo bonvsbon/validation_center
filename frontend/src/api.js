@@ -34,3 +34,13 @@ export async function getResults(runId, { category = null, pageSize = 500 } = {}
 
 // Excel export URL (open in a new tab / anchor href)
 export const exportUrl = (runId) => `${BASE}/recon/runs/${runId}/export`;
+
+async function jget(path) {
+  const r = await fetch(BASE + path);
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+// run history (newest first) + a single run record
+export const listRuns = () => jget("/recon/runs");
+export const getRun = (runId) => jget(`/recon/runs/${runId}`);

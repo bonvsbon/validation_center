@@ -3,7 +3,9 @@ import ReactFlow, {
   Background, Controls, MiniMap, Handle, Position, useNodesState, useEdgesState,
 } from "reactflow";
 import sampleGraph from "./sampleGraph.json";
-import { bootstrap, approveSuggestion, runRecon, getResults, exportUrl } from "./api";
+import {
+  bootstrap, approveSuggestion, runRecon, getResults, exportUrl, listRuns, getRun,
+} from "./api";
 
 /* ---------- custom node ---------- */
 function FieldNode({ data }) {
@@ -79,6 +81,7 @@ export default function App() {
   const [runSummary, setRunSummary] = useState(null);
   const [runId, setRunId] = useState(null);
   const [results, setResults] = useState([]);
+  const [history, setHistory] = useState(null);   // null = hidden, [] = shown/empty
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -138,6 +141,25 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const openHistory = async () => {
+    setBusy(true); setError(null);
+    try { setHistory(await listRuns()); }
+    catch (e) { setError(`History failed: ${e.message}. Is the API running?`); }
+    finally { setBusy(false); }
+  };
+
+  const openRun = async (id) => {
+    setBusy(true); setError(null);
+    try {
+      const run = await getRun(id);
+      setRunSummary(run.summary); setRunId(id);
+      const res = await getResults(id);
+      setResults(res.items.filter((r) => r.category !== "MATCH"));
+      setHistory(null); setSelected(null);
+    } catch (e) { setError(`Open run failed: ${e.message}`); }
+    finally { setBusy(false); }
+  };
+
   const download = () => {
     const blob = new Blob([JSON.stringify(mapping, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
@@ -154,6 +176,7 @@ export default function App() {
         {counts.low > 0 && <span className="chip low">⚠ low-conf {counts.low}</span>}
         <div className="spacer" />
         <button onClick={loadFromApi} disabled={busy}>Load from API</button>
+        <button onClick={openHistory} disabled={busy}>History</button>
         <button onClick={approveAll}>Approve all</button>
         <button onClick={download} disabled={mapping.key_pairs.length === 0}>Export</button>
         <button className="primary" onClick={reconcile} disabled={busy || !api}>
@@ -173,6 +196,27 @@ export default function App() {
 
         <div className="sidebar">
           {error && <div className="chip rejected" style={{ display: "block", marginBottom: 10 }}>{error}</div>}
+
+          {history !== null && <div style={{ marginBottom: 12 }}>
+            <h2>Run history ({history.length})
+              <span className="hint" style={{ cursor: "pointer", float: "right" }}
+                onClick={() => setHistory(null)}>close ✕</span></h2>
+            {history.length === 0 && <p className="hint">No runs yet.</p>}
+            <table className="results">
+              <thead><tr><th>Run</th><th>Status</th><th>✅</th><th>❌</th><th>🚫</th></tr></thead>
+              <tbody>
+                {history.map((r) => (
+                  <tr key={r.run_id} style={{ cursor: "pointer" }} onClick={() => openRun(r.run_id)}>
+                    <td title={r.run_id}>{r.run_id.slice(0, 8)}</td>
+                    <td>{r.status}</td>
+                    <td>{r.summary?.match_count ?? "—"}</td>
+                    <td>{r.summary?.mismatch_count ?? "—"}</td>
+                    <td>{r.summary?.exception_count ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>}
           {runSummary && <div style={{ marginBottom: 12 }}>
             <h2>Reconciliation result</h2>
             {SUMMARY_FIELDS.map(([k, label]) => (
