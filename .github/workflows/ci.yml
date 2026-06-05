@@ -21,7 +21,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run test suites
-        run: python -m pytest orchestrator api extraction suggester -q
+        run: python -m pytest orchestrator api extraction suggester persistence -q
 
   dotnet:
     name: .NET port (build + SQL parity)

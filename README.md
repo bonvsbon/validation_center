@@ -63,9 +63,13 @@ break the core.
 - ✅ **Reconciliation orchestrator** (`orchestrator/`, Python + DuckDB) — generates
   deterministic SQL from a real Template + Mapping, runs it, returns an explainable
   result set. `python -m orchestrator.test_smoke` → PASS.
-- ✅ **Persistence** (`persistence/`) — `ReconStore` interface with `InMemoryStore`
-  (runnable) + `PostgresStore` (writes `recon_runs` / partitioned `recon_results` /
-  `recon_summary` per `db/schema.sql`).
+- ✅ **Persistence** (`persistence/`) — `ReconStore` interface with three backends:
+  `InMemoryStore` (tests), **`DuckDBStore` (durable LOCAL file — the default, no
+  server)**, and `PostgresStore` (multi-process/prod). Durability verified across a
+  close+reopen.
+- ✅ **Async runs** — `POST /recon/runs` with `background:true` returns `QUEUED`
+  immediately and a worker processes it (`QUEUED→RUNNING→COMPLETED`); poll
+  `GET /recon/runs/{id}`. Default stays synchronous.
 - ✅ **REST API** (`api/`, FastAPI) — register template/mapping/datasets, trigger run,
   drill-down results, export xlsx. `python -m api.test_api` → PASS.
 - ✅ **Excel report** (`reporting/`) — Summary + By-Field + Drilldown sheets with

@@ -46,8 +46,9 @@ class ReconRunRecord:
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         for k in ("queued_at", "started_at", "finished_at"):
-            if d[k] is not None:
-                d[k] = d[k].isoformat()
+            v = d[k]
+            if v is not None and hasattr(v, "isoformat"):
+                d[k] = v.isoformat()   # datetime -> str; already-str passes through
         return d
 
 

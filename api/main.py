@@ -14,7 +14,7 @@ import json
 import os
 import tempfile
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -40,6 +40,19 @@ class RunRequest(BaseModel):
     dest_dataset_id: str
     as_of_date: str = "2026-06-04"
     engine_version: str = "rule-engine/1.0.0"
+    background: bool = False     # True -> return QUEUED immediately, run in background
+
+
+def _execute_run(store, run_id, tmpl, mp, cl, src_path, dst_path, as_of, engine_version):
+    """The actual reconciliation, shared by the sync and background paths."""
+    store.mark_running(run_id)
+    try:
+        cfg = resolve(tmpl, mp, cl, as_of_date=as_of, rule_engine_version=engine_version)
+        result = engine_run(cfg, src_path, dst_path)
+        store.save_results(run_id, result.field_results, result.record_rollup)
+        store.mark_completed(run_id, result.summary)
+    except Exception as e:  # noqa
+        store.mark_failed(run_id, str(e))
 
 
 class RegisterJson(BaseModel):
@@ -268,7 +281,7 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
 
     # ---------- reconciliation ----------
     @app.post("/api/v1/recon/runs", status_code=202)
-    def trigger_run(req: RunRequest):
+    def trigger_run(req: RunRequest, background_tasks: BackgroundTasks):
         tmpl = app.state.templates.get(req.template_id)
         mp = app.state.mappings.get(req.mapping_id)
         cl = app.state.code_lists.get(req.code_lists_id, {}) if req.code_lists_id else {}
@@ -292,17 +305,17 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
             as_of_date=req.as_of_date)
         st: ReconStore = app.state.store
         st.create_run(meta)
-        st.mark_running(meta.run_id)
-        try:
-            cfg = resolve(tmpl, mp, cl, as_of_date=req.as_of_date,
-                          rule_engine_version=req.engine_version)
-            result = engine_run(cfg, src["path"], dst["path"])
-            st.save_results(meta.run_id, result.field_results, result.record_rollup)
-            st.mark_completed(meta.run_id, result.summary)
-        except Exception as e:  # noqa
-            st.mark_failed(meta.run_id, str(e))
-            raise HTTPException(422, f"run failed: {e}")
-        return st.get_run(meta.run_id).to_dict()
+        args = (st, meta.run_id, tmpl, mp, cl, src["path"], dst["path"],
+                req.as_of_date, req.engine_version)
+        if req.background:
+            # return QUEUED immediately; the worker runs after the response is sent.
+            background_tasks.add_task(_execute_run, *args)
+            return st.get_run(meta.run_id).to_dict()      # status = QUEUED
+        _execute_run(*args)                                # synchronous (default)
+        rec = st.get_run(meta.run_id)
+        if rec.status == "FAILED":
+            raise HTTPException(422, f"run failed: {rec.error_message}")
+        return rec.to_dict()
 
     @app.get("/api/v1/recon/runs")
     def list_runs():
@@ -343,9 +356,17 @@ def create_app(store: Optional[ReconStore] = None, work_dir: Optional[str] = Non
 
     @app.get("/health")
     def health():
-        return {"status": "ok"}
+        return {"status": "ok", "store": type(app.state.store).__name__}
 
     return app
 
 
-app = create_app()
+def _default_store():
+    """The runnable server persists to a LOCAL DuckDB file (no server needed).
+    Override the path with VC_DB_PATH; tests call create_app() -> InMemoryStore."""
+    from persistence import DuckDBStore
+    return DuckDBStore(os.environ.get("VC_DB_PATH", "./data/vc.duckdb"))
+
+
+# Module-level app for `uvicorn api.main:app` — durable local persistence.
+app = create_app(store=_default_store())

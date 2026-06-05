@@ -20,3 +20,8 @@ dotnet/out/
 frontend/node_modules/
 frontend/dist/
 *.pdf
+
+# Local DuckDB persistence
+data/
+*.duckdb
+*.duckdb.wal
